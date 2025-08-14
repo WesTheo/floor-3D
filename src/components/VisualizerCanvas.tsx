@@ -18,12 +18,31 @@ export default function VisualizerCanvas() {
   
   // State for processing
   const [isProcessing, setIsProcessing] = useState(false);
-  const [currentPhoto, setCurrentPhoto] = useState<HTMLImageElement | null>(null);
   
   // Guard against duplicate initialization
   const didInit = useRef(false);
   
   useEffect(() => {
+    if (didInit.current || !canvasRef.current) return;
+    
+    // Wait for canvas to have proper dimensions
+    const canvas = canvasRef.current;
+    if (canvas.clientWidth === 0 || canvas.clientHeight === 0) {
+      console.log('⏳ Canvas has no dimensions, waiting...');
+      // Wait a frame for CSS to be applied
+      requestAnimationFrame(() => {
+        if (canvas.clientWidth > 0 && canvas.clientHeight > 0) {
+          console.log('✅ Canvas now has dimensions:', canvas.clientWidth, 'x', canvas.clientHeight);
+          initThreeJS();
+        }
+      });
+      return;
+    }
+    
+    initThreeJS();
+  }, []);
+  
+  function initThreeJS() {
     if (didInit.current || !canvasRef.current) return;
     didInit.current = true;
     
@@ -34,16 +53,27 @@ export default function VisualizerCanvas() {
     sceneRef.current = scene;
     
     // Create camera (orthographic for 2D-like view)
-    const aspect = canvasRef.current.clientWidth / canvasRef.current.clientHeight;
-    const camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 1000);
+    const canvas = canvasRef.current;
+    const aspect = canvas.clientWidth / canvas.clientHeight;
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
     cameraRef.current = camera;
     camera.position.z = 1;
     
+    console.log('📐 Camera created:', { aspect, frustum: [-1, 1, 1, -1] });
+    
     // Create renderer
-    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
     rendererRef.current = renderer;
-    renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+    
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+    
+    console.log('🎨 Canvas dimensions:', { width: canvasWidth, height: canvasHeight });
+    
+    renderer.setSize(canvasWidth, canvasHeight);
     renderer.setClearColor(0xffffff, 0);
+    
+    console.log('🎨 Renderer size set to:', renderer.getSize(new THREE.Vector2()));
     
     // Create basic floor mesh (will be replaced when photo is uploaded)
     const floorMesh = createBasicMesh();
@@ -52,6 +82,10 @@ export default function VisualizerCanvas() {
     
     // Render
     renderer.render(scene, camera);
+    console.log('🎬 Initial render complete');
+    console.log('🎭 Scene children:', scene.children.length);
+    console.log('📐 Camera position:', camera.position);
+    console.log('🎨 Renderer size:', renderer.getSize(new THREE.Vector2()));
     
     // Handle resize
     const handleResize = () => {
@@ -81,18 +115,33 @@ export default function VisualizerCanvas() {
         (floorMesh.material as THREE.Material).dispose();
       }
     };
-  }, []);
+  }
   
   function createBasicMesh() {
+    console.log('🔧 Creating basic mesh...');
+    
     // Create a simple quad for initial scene
     const geometry = new THREE.PlaneGeometry(2, 2);
+    
+    // Create a simple texture material instead of brown
+    const textureLoader = new THREE.TextureLoader();
+    const texture = textureLoader.load('/textures/gray-lvp.jpg');
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    
+    console.log('🎨 Basic texture loaded:', texture);
+    
     const material = new THREE.MeshBasicMaterial({ 
-      color: 0x8B4513, // Brown color for now
+      map: texture,
       transparent: true,
-      opacity: 0.8
+      opacity: 1.0
     });
     
-    return new THREE.Mesh(geometry, material);
+    console.log('🎭 Basic material created:', material);
+    
+    const mesh = new THREE.Mesh(geometry, material);
+    console.log('🎪 Basic mesh created:', mesh);
+    
+    return mesh;
   }
   
   // Update when controls change
@@ -119,7 +168,7 @@ export default function VisualizerCanvas() {
     setIsProcessing(true);
     
     try {
-      console.log('🎯 Processing image with basic texture rendering...');
+      console.log('🎯 Processing image with real AI...');
       
       // Create image for display
       const img = new Image();
@@ -127,33 +176,62 @@ export default function VisualizerCanvas() {
         img.onload = resolve;
         img.src = URL.createObjectURL(file);
       });
-      setCurrentPhoto(img);
       
-      // For now, create basic masks (no AI yet)
-      const W = img.width;
-      const H = img.height;
+      // Read file as array buffer for API calls
+      const bytes = await file.arrayBuffer();
       
-      // Temporary masks: 1 for floor, 0 for occluders
-      const fullMask = new Float32Array(W * H).fill(1.0);
-      const emptyMask = new Float32Array(W * H).fill(0.0);
+      // Step 1: Call segmentation API
+      console.log('🔍 Calling segmentation API...');
+      const segResp = await fetch('/api/segment', { 
+        method: 'POST', 
+        body: bytes 
+      });
       
-      // Create photo texture
-      const photoTex = new THREE.TextureLoader().load(URL.createObjectURL(file));
-      photoTex.colorSpace = THREE.SRGBColorSpace;
+      if (!segResp.ok) {
+        throw new Error(`Segmentation failed: ${segResp.status}`);
+      }
       
-      // Create basic homography (identity matrix for now)
-      const basicHomography = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+      const segJson = await segResp.json();
+      console.log('✅ Segmentation complete:', segJson.length, 'segments');
       
-      // Create basic illumination map
-      const illuminationMap = createBasicIlluminationMap(W, H);
+      // Step 2: Call depth API
+      console.log('🔍 Calling depth API...');
+      const depResp = await fetch('/api/depth', { 
+        method: 'POST', 
+        body: bytes 
+      });
       
-      // Create 3D floor mesh with shader
+      if (!depResp.ok) {
+        throw new Error(`Depth estimation failed: ${depResp.status}`);
+      }
+      
+      const depthPng = await depResp.arrayBuffer();
+      console.log('✅ Depth estimation complete');
+      
+      // Step 3: Process segmentation results
+      const { floorMask, furnitureMask, W, H } = await buildMasksFromSegmentation(segJson, img.width, img.height);
+      console.log('✅ Masks built:', { W, H });
+      
+      // Step 4: Process depth data
+      const depth = await decodeDepthPNGToFloat32(depthPng, W, H);
+      console.log('✅ Depth decoded');
+      
+      // Step 5: Fit floor plane and compute homography
+      const plane = fitFloorPlane(depth, floorMask, W, H);
+      const homogs = computeHomographies(plane, W, H);
+      console.log('✅ Homographies computed');
+      
+      // Step 6: Create illumination map
+      const illuminationMap = makeIlluminationMap(img, floorMask, W, H);
+      console.log('✅ Illumination map created');
+      
+      // Step 7: Create 3D floor mesh with shader
       const floorMesh = createFloorMesh(
         img,
-        fullMask,
-        emptyMask,
+        floorMask,
+        furnitureMask,
         illuminationMap,
-        basicHomography,
+        homogs.H_img2uv,
         W,
         H
       );
@@ -174,6 +252,8 @@ export default function VisualizerCanvas() {
       
     } catch (error) {
       console.error('❌ Processing failed:', error);
+      // Show error to user
+      alert(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -188,39 +268,91 @@ export default function VisualizerCanvas() {
     width: number,
     height: number
   ) {
+    console.log('🔧 Creating floor mesh with shader...');
+    console.log('📐 Dimensions:', width, 'x', height);
+    console.log('🎨 Photo:', photo);
+    console.log('🎭 Floor mask length:', floorMask.length);
+    
     // Create a simple quad
     const geometry = new THREE.PlaneGeometry(2, 2);
     
-    // Create shader material with all textures
-    const material = new THREE.ShaderMaterial({
-      vertexShader,
-      fragmentShader,
-      uniforms: {
-        uPhoto: { value: new THREE.CanvasTexture(photo) },
-        uWood: { value: loadWoodTexture() }, // Load selected wood texture
-        uIllum: { value: new THREE.CanvasTexture(illuminationMap) },
-        uFloorMask: { value: createMaskTexture(floorMask, width, height) },
-        uOccluderMask: { value: createMaskTexture(furnitureMask, width, height) },
-        uH: { value: new THREE.Matrix3().fromArray(homography) },
-        uImageSize: { value: new THREE.Vector2(width, height) },
-        uRotation: { value: rotation },
-        uScale: { value: scale },
-        uPlankSize: { value: new THREE.Vector2(1.2, 0.2) }, // meters, just a feel value
-        uPattern: { value: getPatternIndex(pattern) },
-        uSeed: { value: shuffleSeed }
-      },
-      transparent: true
-    });
-    
-    return new THREE.Mesh(geometry, material);
+    try {
+      // Create shader material with all textures
+      const material = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms: {
+          uPhoto: { value: new THREE.CanvasTexture(photo) },
+          uWood: { value: loadWoodTexture() }, // Load selected wood texture
+          uIllum: { value: new THREE.CanvasTexture(illuminationMap) },
+          uFloorMask: { value: createMaskTexture(floorMask, width, height) },
+          uOccluderMask: { value: createMaskTexture(furnitureMask, width, height) },
+          uH: { value: new THREE.Matrix3().fromArray(homography) },
+          uImageSize: { value: new THREE.Vector2(width, height) },
+          uRotation: { value: rotation },
+          uScale: { value: scale },
+          uPlankSize: { value: new THREE.Vector2(1.2, 0.2) }, // meters, just a feel value
+          uPattern: { value: getPatternIndex(pattern) },
+          uSeed: { value: shuffleSeed }
+        },
+        transparent: true
+      });
+      
+      console.log('✅ Shader material created successfully');
+      console.log('🎨 Material uniforms:', material.uniforms);
+      
+      return new THREE.Mesh(geometry, material);
+    } catch (error) {
+      console.error('❌ Error creating shader material:', error);
+      // Fallback to basic texture material
+      const textureLoader = new THREE.TextureLoader();
+      const texture = textureLoader.load('/textures/gray-lvp.jpg');
+      const fallbackMaterial = new THREE.MeshBasicMaterial({ 
+        map: texture,
+        transparent: true,
+        opacity: 1.0
+      });
+      return new THREE.Mesh(geometry, fallbackMaterial);
+    }
   }
   
   function loadWoodTexture(): THREE.Texture {
     // Load the selected wood texture from the store
     const { textureId } = useSceneStore.getState();
-    const texturePath = `/textures/${textureId}.jpg`;
     
-    const texture = new THREE.TextureLoader().load(texturePath);
+    // Map textureId to actual file names
+    let texturePath: string;
+    switch (textureId) {
+      case 'oak-01':
+        texturePath = '/textures/oak.jpg';
+        break;
+      case 'walnut-01':
+        texturePath = '/textures/walnut.jpg';
+        break;
+      case 'gray-lvp-01':
+        texturePath = '/textures/gray-lvp.jpg';
+        break;
+      case 'demo-laminate-01':
+        texturePath = '/textures/demo-laminate.jpg';
+        break;
+      default:
+        texturePath = '/textures/oak.jpg';
+        break;
+    }
+    
+    console.log('🎨 Loading wood texture:', texturePath);
+    
+    const texture = new THREE.TextureLoader().load(
+      texturePath,
+      () => {
+        console.log('✅ Texture loaded successfully:', texturePath);
+      },
+      undefined,
+      (error) => {
+        console.error('❌ Failed to load texture:', texturePath, error);
+      }
+    );
+    
     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     texture.colorSpace = THREE.SRGBColorSpace;
     
@@ -258,19 +390,19 @@ export default function VisualizerCanvas() {
   }
   
   // Helper functions (simplified for now)
-  async function decodeDepthPNGToFloat32(pngBuffer: ArrayBuffer, width: number, height: number): Promise<Float32Array> {
+  async function decodeDepthPNGToFloat32(_pngBuffer: ArrayBuffer, width: number, height: number): Promise<Float32Array> {
     // Placeholder - decode PNG depth to Float32Array
     // In real implementation, decode the depth PNG properly
     return new Float32Array(width * height).fill(0.5);
   }
   
-  function fitFloorPlane(depth: Float32Array, floorMask: Float32Array, width: number, height: number) {
+  function fitFloorPlane(_depth: Float32Array, _floorMask: Float32Array, _width: number, _height: number) {
     // Placeholder - fit plane to depth data
     // In real implementation, use RANSAC to fit floor plane
     return { normal: [0, 0, 1], d: 0 };
   }
   
-  function computeHomographies(plane: any, width: number, height: number) {
+  function computeHomographies(_plane: any, _width: number, _height: number) {
     // Placeholder - compute homography matrices
     // In real implementation, compute proper homography from plane
     return {
@@ -279,19 +411,9 @@ export default function VisualizerCanvas() {
     };
   }
   
-  function makeIlluminationMap(image: HTMLImageElement, floorMask: Float32Array, width: number, height: number): HTMLCanvasElement {
+  function makeIlluminationMap(_image: HTMLImageElement, _floorMask: Float32Array, width: number, height: number): HTMLCanvasElement {
     // Placeholder - create illumination map
     // In real implementation, compute luminance and blur
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    canvas.width = width;
-    canvas.height = height;
-    ctx.fillStyle = 'rgb(128, 128, 128)';
-    ctx.fillRect(0, 0, width, height);
-    return canvas;
-  }
-
-  function createBasicIlluminationMap(width: number, height: number): HTMLCanvasElement {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
     canvas.width = width;

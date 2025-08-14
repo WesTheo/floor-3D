@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Texture Generator</title>
+</head>
+<body>
+    <h1>Texture Generator</h1>
+    <p>This will generate the texture files. Open the browser console to see the data URLs.</p>
+    
+    <canvas id="canvas" width="400" height="200" style="border: 1px solid black;"></canvas>
+    <br><br>
+    
+    <button onclick="generateOak()">Generate Oak</button>
+    <button onclick="generateWalnut()">Generate Walnut</button>
+    <button onclick="generateGrayLvp()">Generate Gray LVP</button>
+    <button onclick="generateDemoLaminate()">Generate Demo Laminate</button>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        function generateOak() {
+            // Clear canvas
+            ctx.fillStyle = '#d4a574';
+            ctx.fillRect(0, 0, 400, 200);
+            
+            // Add wood grain lines
+            ctx.strokeStyle = '#b8860b';
+            ctx.lineWidth = 2;
+            
+            // Vertical lines
+            for (let x = 0; x < 400; x += 25) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < 200; y += 25) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(400, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#cd853f';
+            ctx.lineWidth = 1;
+            for (let x = 12; x < 400; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            console.log('Oak texture generated. Data URL:', canvas.toDataURL('image/jpeg', 0.9));
+        }
+        
+        function generateWalnut() {
+            // Clear canvas
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, 0, 400, 200);
+            
+            // Add wood grain lines
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            
+            // Vertical lines
+            for (let x = 0; x < 400; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < 200; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(400, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#A0522D';
+            ctx.lineWidth = 3;
+            for (let x = 10; x < 400; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            console.log('Walnut texture generated. Data URL:', canvas.toDataURL('image/jpeg', 0.9));
+        }
+        
+        function generateGrayLvp() {
+            // Clear canvas
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(0, 0, 400, 200);
+            
+            // Add LVP pattern
+            ctx.strokeStyle = '#696969';
+            ctx.lineWidth = 2;
+            
+            // Vertical lines
+            for (let x = 0; x < 400; x += 20) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < 200; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(400, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#A9A9A9';
+            ctx.lineWidth = 1;
+            for (let x = 10; x < 400; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            console.log('Gray LVP texture generated. Data URL:', canvas.toDataURL('image/jpeg', 0.9));
+        }
+        
+        function generateDemoLaminate() {
+            // Clear canvas
+            ctx.fillStyle = '#DEB887';
+            ctx.fillRect(0, 0, 400, 200);
+            
+            // Add laminate pattern
+            ctx.strokeStyle = '#D2B48C';
+            ctx.lineWidth = 2;
+            
+            // Vertical lines
+            for (let x = 0; x < 400; x += 30) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < 200; y += 30) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(400, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#F5DEB3';
+            ctx.lineWidth = 1;
+            for (let x = 15; x < 400; x += 60) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 200);
+                ctx.stroke();
+            }
+            
+            console.log('Demo Laminate texture generated. Data URL:', canvas.toDataURL('image/jpeg', 0.9));
+        }
+        
+        // Generate all textures on load
+        window.onload = function() {
+            console.log('Texture generator ready! Click buttons to generate textures.');
+            console.log('Copy the data URLs from console and save them as .jpg files.');
+        };
+    </script>
+</body>
+</html>

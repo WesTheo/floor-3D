@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texture Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .texture-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px;
+            display: block;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .download-link {
+            display: inline-block;
+            margin: 10px;
+            padding: 10px 15px;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .download-link:hover {
+            background: #218838;
+        }
+        .instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Floor Texture Generator</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click the "Generate" button for each texture</li>
+            <li>Click the "Download" link that appears</li>
+            <li>Save the file to: <code>floor-preview-app/public/textures/</code></li>
+            <li>Replace the existing placeholder files</li>
+        </ol>
+    </div>
+
+    <div class="texture-section">
+        <h2>Oak Wood Texture</h2>
+        <canvas id="oakCanvas" width="200" height="100"></canvas>
+        <button onclick="generateOak()">Generate Oak</button>
+        <div id="oakDownload"></div>
+    </div>
+
+    <div class="texture-section">
+        <h2>Walnut Wood Texture</h2>
+        <canvas id="walnutCanvas" width="200" height="100"></canvas>
+        <button onclick="generateWalnut()">Generate Walnut</button>
+        <div id="walnutDownload"></div>
+    </div>
+
+    <div class="texture-section">
+        <h2>Gray LVP Texture</h2>
+        <canvas id="grayCanvas" width="200" height="100"></canvas>
+        <button onclick="generateGray()">Generate Gray LVP</button>
+        <div id="grayDownload"></div>
+    </div>
+
+    <div class="texture-section">
+        <h2>Demo Laminate Texture</h2>
+        <canvas id="demoCanvas" width="200" height="100"></canvas>
+        <button onclick="generateDemo()">Generate Demo Laminate</button>
+        <div id="demoDownload"></div>
+    </div>
+
+    <div class="texture-section">
+        <h2>Quick Download All</h2>
+        <button onclick="generateAll()">Generate All Textures</button>
+        <div id="allDownloads"></div>
+    </div>
+
+    <script>
+        function generateOak() {
+            const canvas = document.getElementById('oakCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Base oak color
+            ctx.fillStyle = '#d4a574';
+            ctx.fillRect(0, 0, 200, 100);
+            
+            // Wood grain lines
+            ctx.strokeStyle = '#b8860b';
+            ctx.lineWidth = 1;
+            
+            // Vertical grain lines
+            for (let x = 0; x < 200; x += 8) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines for planks
+            for (let y = 0; y < 100; y += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(200, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#cd853f';
+            ctx.lineWidth = 2;
+            for (let x = 12; x < 200; x += 50) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            showDownload('oakDownload', canvas, 'oak.jpg');
+        }
+
+        function generateWalnut() {
+            const canvas = document.getElementById('walnutCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Base walnut color
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(0, 0, 200, 100);
+            
+            // Wood grain lines
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 1;
+            
+            // Vertical grain lines
+            for (let x = 0; x < 200; x += 6) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines for planks
+            for (let y = 0; y < 100; y += 16) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(200, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#A0522D';
+            ctx.lineWidth = 3;
+            for (let x = 10; x < 200; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            showDownload('walnutDownload', canvas, 'walnut.jpg');
+        }
+
+        function generateGray() {
+            const canvas = document.getElementById('grayCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Base gray color
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(0, 0, 200, 100);
+            
+            // LVP pattern
+            ctx.strokeStyle = '#696969';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x < 200; x += 10) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < 100; y += 12) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(200, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#A9A9A9';
+            ctx.lineWidth = 2;
+            for (let x = 15; x < 200; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            showDownload('grayDownload', canvas, 'gray-lvp.jpg');
+        }
+
+        function generateDemo() {
+            const canvas = document.getElementById('demoCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Base laminate color
+            ctx.fillStyle = '#DEB887';
+            ctx.fillRect(0, 0, 200, 100);
+            
+            // Laminate pattern
+            ctx.strokeStyle = '#D2B48C';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x < 200; x += 12) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < 100; y += 15) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(200, y);
+                ctx.stroke();
+            }
+            
+            // Add some variation
+            ctx.strokeStyle = '#F5DEB3';
+            ctx.lineWidth = 2;
+            for (let x = 18; x < 200; x += 60) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 100);
+                ctx.stroke();
+            }
+            
+            showDownload('demoDownload', canvas, 'demo-laminate.jpg');
+        }
+
+        function generateAll() {
+            generateOak();
+            generateWalnut();
+            generateGray();
+            generateDemo();
+            
+            const allDiv = document.getElementById('allDownloads');
+            allDiv.innerHTML = `
+                <div style="margin: 10px 0; padding: 15px; background: #d4edda; border-radius: 4px; border-left: 4px solid #28a745;">
+                    <h4>✅ All textures generated!</h4>
+                    <p>Click each download link above to save the texture files.</p>
+                    <p><strong>Save location:</strong> <code>floor-preview-app/public/textures/</code></p>
+                </div>
+            `;
+        }
+
+        function showDownload(elementId, canvas, filename) {
+            const div = document.getElementById(elementId);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            div.innerHTML = `
+                <a href="${dataUrl}" download="${filename}" class="download-link">
+                    📥 Download ${filename}
+                </a>
+                <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                    Save to: <code>floor-preview-app/public/textures/${filename}</code>
+                </p>
+            `;
+        }
+
+        // Auto-generate all textures on page load
+        window.onload = function() {
+            console.log('Texture generator ready! Click buttons to generate textures.');
+        };
+    </script>
+</body>
+</html>

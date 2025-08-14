@@ -3,11 +3,38 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  optimizeDeps: {
-    // keep module as-is so our env patch runs before pipeline()
-    exclude: ['@xenova/transformers'],
-  },
   server: {
-    // DO NOT enable COOP/COEP yet; keep defaults to avoid isolation issues
+    proxy: {
+      '/api/segment': {
+        target: 'https://api-inference.huggingface.co/models/nvidia/segformer-b0-finetuned-ade-512-512',
+        changeOrigin: true,
+        rewrite: (_path) => '',
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, _req, _res) => {
+            // HF token will be set via environment variable HF_TOKEN
+            const token = process.env.HF_TOKEN;
+            if (token) {
+              proxyReq.setHeader('Authorization', `Bearer ${token}`);
+            }
+            proxyReq.setHeader('Content-Type', 'application/octet-stream');
+          });
+        }
+      },
+      '/api/depth': {
+        target: 'https://api-inference.huggingface.co/models/Intel/dpt-hybrid-midas',
+        changeOrigin: true,
+        rewrite: (_path) => '',
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, _req, _res) => {
+            // HF token will be set via environment variable HF_TOKEN
+            const token = process.env.HF_TOKEN;
+            if (token) {
+              proxyReq.setHeader('Authorization', `Bearer ${token}`);
+            }
+            proxyReq.setHeader('Content-Type', 'application/octet-stream');
+          });
+        }
+      }
+    }
   },
 });
