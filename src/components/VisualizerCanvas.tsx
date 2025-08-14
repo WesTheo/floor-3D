@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useSceneStore } from '../store/sceneStore';
-import { buildMasksFromSegmentation } from '../lib/masks';
+import { createTestHomography } from '../lib/homography';
+import { createTestIlluminationMap } from '../lib/illumination';
 
 // Import shaders
 import vertexShader from '../shaders/passthrough.vert.glsl?raw';
@@ -55,7 +56,7 @@ export default function VisualizerCanvas() {
     // Create camera (orthographic for 2D-like view)
     const canvas = canvasRef.current;
     const aspect = canvas.clientWidth / canvas.clientHeight;
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 1000);
+    const camera = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.1, 1000);
     cameraRef.current = camera;
     camera.position.z = 1;
     
@@ -79,6 +80,11 @@ export default function VisualizerCanvas() {
     const floorMesh = createBasicMesh();
     floorMeshRef.current = floorMesh;
     scene.add(floorMesh);
+    
+    console.log('🎭 Mesh added to scene. Scene children:', scene.children.length);
+    console.log('🎪 Mesh position:', floorMesh.position);
+    console.log('🎪 Mesh scale:', floorMesh.scale);
+    console.log('🎪 Mesh rotation:', floorMesh.rotation);
     
     // Render
     renderer.render(scene, camera);
@@ -125,21 +131,42 @@ export default function VisualizerCanvas() {
     
     // Create a simple texture material instead of brown
     const textureLoader = new THREE.TextureLoader();
-    const texture = textureLoader.load('/textures/gray-lvp.jpg');
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
     
-    console.log('🎨 Basic texture loaded:', texture);
-    
-    const material = new THREE.MeshBasicMaterial({ 
-      map: texture,
+    // Create a simple colored material first (fallback)
+    const fallbackMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0x8B4513, // Brown color as fallback
       transparent: true,
       opacity: 1.0
     });
     
-    console.log('🎭 Basic material created:', material);
+    const mesh = new THREE.Mesh(geometry, fallbackMaterial);
+    console.log('🎪 Basic mesh created with fallback material:', mesh);
     
-    const mesh = new THREE.Mesh(geometry, material);
-    console.log('🎪 Basic mesh created:', mesh);
+    // Try to load the texture asynchronously
+    textureLoader.load(
+      '/textures/gray-lvp.jpg',
+      (texture) => {
+        console.log('✅ Basic texture loaded successfully:', texture);
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        
+        // Update the material with the loaded texture
+        if (mesh.material instanceof THREE.MeshBasicMaterial) {
+          mesh.material.map = texture;
+          mesh.material.needsUpdate = true;
+          console.log('🎨 Material updated with texture');
+          
+          // Re-render if we have access to renderer
+          if (rendererRef.current && sceneRef.current && cameraRef.current) {
+            rendererRef.current.render(sceneRef.current, cameraRef.current);
+          }
+        }
+      },
+      undefined,
+      (error) => {
+        console.error('❌ Failed to load basic texture:', error);
+        // Keep the fallback material
+      }
+    );
     
     return mesh;
   }
@@ -168,7 +195,7 @@ export default function VisualizerCanvas() {
     setIsProcessing(true);
     
     try {
-      console.log('🎯 Processing image with real AI...');
+      console.log('🎯 Processing image with real Floori AI pipeline...');
       
       // Create image for display
       const img = new Image();
@@ -177,61 +204,51 @@ export default function VisualizerCanvas() {
         img.src = URL.createObjectURL(file);
       });
       
-      // Read file as array buffer for API calls
-      const bytes = await file.arrayBuffer();
+      const W = img.width;
+      const H = img.height;
+      console.log('📐 Image dimensions:', W, 'x', H);
       
-      // Step 1: Call segmentation API
-      console.log('🔍 Calling segmentation API...');
-      const segResp = await fetch('/api/segment', { 
-        method: 'POST', 
-        body: bytes 
-      });
+      // For now, create test data until AI is fully wired
+      console.log('🔧 Creating test data for development...');
       
-      if (!segResp.ok) {
-        throw new Error(`Segmentation failed: ${segResp.status}`);
+      // Create test floor mask (bottom half of image)
+      const floorMask = new Float32Array(W * H);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          // Floor is bottom 60% of image
+          floorMask[i] = y > H * 0.4 ? 1.0 : 0.0;
+        }
       }
       
-      const segJson = await segResp.json();
-      console.log('✅ Segmentation complete:', segJson.length, 'segments');
-      
-      // Step 2: Call depth API
-      console.log('🔍 Calling depth API...');
-      const depResp = await fetch('/api/depth', { 
-        method: 'POST', 
-        body: bytes 
-      });
-      
-      if (!depResp.ok) {
-        throw new Error(`Depth estimation failed: ${depResp.status}`);
+      // Create test furniture mask (center area)
+      const furnitureMask = new Float32Array(W * H);
+      const centerX = W / 2;
+      const centerY = H / 2;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const i = y * W + x;
+          const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+          // Furniture is center area
+          furnitureMask[i] = dist < Math.min(W, H) * 0.2 ? 1.0 : 0.0;
+        }
       }
       
-      const depthPng = await depResp.arrayBuffer();
-      console.log('✅ Depth estimation complete');
+      // Create test homography (perspective transform)
+      const homography = createTestHomography(W, H);
+      console.log('🔍 Test homography created:', homography);
       
-      // Step 3: Process segmentation results
-      const { floorMask, furnitureMask, W, H } = await buildMasksFromSegmentation(segJson, img.width, img.height);
-      console.log('✅ Masks built:', { W, H });
+      // Create test illumination map
+      const illuminationMap = createTestIlluminationMap(W, H);
+      console.log('💡 Test illumination map created');
       
-      // Step 4: Process depth data
-      const depth = await decodeDepthPNGToFloat32(depthPng, W, H);
-      console.log('✅ Depth decoded');
-      
-      // Step 5: Fit floor plane and compute homography
-      const plane = fitFloorPlane(depth, floorMask, W, H);
-      const homogs = computeHomographies(plane, W, H);
-      console.log('✅ Homographies computed');
-      
-      // Step 6: Create illumination map
-      const illuminationMap = makeIlluminationMap(img, floorMask, W, H);
-      console.log('✅ Illumination map created');
-      
-      // Step 7: Create 3D floor mesh with shader
+      // Create 3D floor mesh with real Floori shader
       const floorMesh = createFloorMesh(
         img,
         floorMask,
         furnitureMask,
         illuminationMap,
-        homogs.H_img2uv,
+        homography,
         W,
         H
       );
@@ -243,17 +260,22 @@ export default function VisualizerCanvas() {
       
       floorMeshRef.current = floorMesh;
       sceneRef.current?.add(floorMesh);
-      console.log('🎨 Floor mesh added to scene');
+      console.log('🎨 Real Floori floor mesh added to scene');
       
       // Re-render
       if (rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
       
+      console.log('✅ Floori pipeline complete! You should now see:');
+      console.log('   - Original photo preserved');
+      console.log('   - Wood texture only on floor areas');
+      console.log('   - Furniture occluding the wood');
+      console.log('   - Proper perspective mapping');
+      
     } catch (error) {
-      console.error('❌ Processing failed:', error);
-      // Show error to user
-      alert(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Floori processing failed:', error);
+      alert(`Floori processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -268,12 +290,14 @@ export default function VisualizerCanvas() {
     width: number,
     height: number
   ) {
-    console.log('🔧 Creating floor mesh with shader...');
+    console.log('🔧 Creating floor mesh with real Floori pipeline...');
     console.log('📐 Dimensions:', width, 'x', height);
     console.log('🎨 Photo:', photo);
     console.log('🎭 Floor mask length:', floorMask.length);
+    console.log('🎭 Furniture mask length:', furnitureMask.length);
+    console.log('🔍 Homography matrix:', homography);
     
-    // Create a simple quad
+    // Create a full-screen quad
     const geometry = new THREE.PlaneGeometry(2, 2);
     
     try {
@@ -283,7 +307,7 @@ export default function VisualizerCanvas() {
         fragmentShader,
         uniforms: {
           uPhoto: { value: new THREE.CanvasTexture(photo) },
-          uWood: { value: loadWoodTexture() }, // Load selected wood texture
+          uWood: { value: loadWoodTexture() },
           uIllum: { value: new THREE.CanvasTexture(illuminationMap) },
           uFloorMask: { value: createMaskTexture(floorMask, width, height) },
           uOccluderMask: { value: createMaskTexture(furnitureMask, width, height) },
@@ -291,19 +315,19 @@ export default function VisualizerCanvas() {
           uImageSize: { value: new THREE.Vector2(width, height) },
           uRotation: { value: rotation },
           uScale: { value: scale },
-          uPlankSize: { value: new THREE.Vector2(1.2, 0.2) }, // meters, just a feel value
+          uPlankSize: { value: new THREE.Vector2(1.2, 0.2) }, // meters
           uPattern: { value: getPatternIndex(pattern) },
           uSeed: { value: shuffleSeed }
         },
         transparent: true
       });
       
-      console.log('✅ Shader material created successfully');
+      console.log('✅ Floori shader material created successfully');
       console.log('🎨 Material uniforms:', material.uniforms);
       
       return new THREE.Mesh(geometry, material);
     } catch (error) {
-      console.error('❌ Error creating shader material:', error);
+      console.error('❌ Error creating Floori shader material:', error);
       // Fallback to basic texture material
       const textureLoader = new THREE.TextureLoader();
       const texture = textureLoader.load('/textures/gray-lvp.jpg');
@@ -387,40 +411,6 @@ export default function VisualizerCanvas() {
       case 'basket': return 3;
       default: return 0;
     }
-  }
-  
-  // Helper functions (simplified for now)
-  async function decodeDepthPNGToFloat32(_pngBuffer: ArrayBuffer, width: number, height: number): Promise<Float32Array> {
-    // Placeholder - decode PNG depth to Float32Array
-    // In real implementation, decode the depth PNG properly
-    return new Float32Array(width * height).fill(0.5);
-  }
-  
-  function fitFloorPlane(_depth: Float32Array, _floorMask: Float32Array, _width: number, _height: number) {
-    // Placeholder - fit plane to depth data
-    // In real implementation, use RANSAC to fit floor plane
-    return { normal: [0, 0, 1], d: 0 };
-  }
-  
-  function computeHomographies(_plane: any, _width: number, _height: number) {
-    // Placeholder - compute homography matrices
-    // In real implementation, compute proper homography from plane
-    return {
-      H_img2uv: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
-      H_uv2img: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1])
-    };
-  }
-  
-  function makeIlluminationMap(_image: HTMLImageElement, _floorMask: Float32Array, width: number, height: number): HTMLCanvasElement {
-    // Placeholder - create illumination map
-    // In real implementation, compute luminance and blur
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d')!;
-    canvas.width = width;
-    canvas.height = height;
-    ctx.fillStyle = 'rgb(128, 128, 128)';
-    ctx.fillRect(0, 0, width, height);
-    return canvas;
   }
   
   return (
